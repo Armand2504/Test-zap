@@ -3,16 +3,19 @@ import requests
 
 app = Flask(__name__)
 
-@app.route('/generate-email', methods=['POST'])
+@app.route('/generate-email', methods=['POST', 'GET'])
 def generate_email():
     # Extraire la transcription de la réunion du corps de la requête
     data = request.get_json()
-    transcription = data['transcription']
+    transcription = data.get('transcription')
+
+    if not transcription:
+        return jsonify({"error": "No transcription provided"}), 400
 
     # Préparer la requête pour l'API OpenAI
     api_url = "https://api.openai.com/v1/completions"
     headers = {
-        "Authorization": f"Bearer votre_clé_api",  # Remplacez 'votre_clé_api' par votre clé API réelle
+        "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -23,10 +26,8 @@ def generate_email():
 
     # Envoyer la requête à OpenAI
     response = requests.post(api_url, headers=headers, json=payload)
-    generated_text = response.json()['choices'][0]['text']
-
-    # Retourner le texte généré en réponse
-    return jsonify({"email": generated_text})
-
-if __name__ == '__main__':
-    app.run(debug=True)
+    if response.status_code == 200:
+        generated_text = response.json()['choices'][0]['text']
+        return jsonify({"email": generated_text})
+    else:
+        return jsonify({"error": "Failed to generate email"}), response.status_code
